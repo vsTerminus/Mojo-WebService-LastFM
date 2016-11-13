@@ -5,7 +5,6 @@ use warnings;
 use v5.10;
 
 use Mojo::UserAgent;
-use Data::Dumper;
 
 sub new
 {
