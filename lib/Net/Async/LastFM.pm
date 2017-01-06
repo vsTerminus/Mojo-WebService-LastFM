@@ -50,13 +50,13 @@ sub nowplaying
         my $title = $track->{'name'};
         my $album = $track->{'album'}{'#text'};
     
-        $format = "artist - title" unless defined $format;
+        $format = "%artist% - %title%" unless defined $format;
 
         if ( defined $artist and defined $album and defined $title )
         {
-            $format =~ s/\bartist\b/$artist/g;
-            $format =~ s/\balbum\b/$album/g;
-            $format =~ s/\btitle\b/$title/g;
+            $format =~ s/%artist%/$artist/g;
+            $format =~ s/%album%/$album/g;
+            $format =~ s/%title%/$title/g;
     
             $np = $format;
         }
