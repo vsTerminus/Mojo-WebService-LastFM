@@ -1,4 +1,4 @@
-package Mojo::LastFM;
+package Mojo::WebService::LastFM;
 
 use strict;
 use warnings;
