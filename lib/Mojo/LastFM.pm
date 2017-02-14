@@ -1,4 +1,4 @@
-package Net::Async::LastFM;
+package Mojo::LastFM;
 
 use strict;
 use warnings;

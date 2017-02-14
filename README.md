@@ -4,4 +4,4 @@ Installing it should be as simple as symlinking the "Async" directory (Containin
 
 eg:
 
-    - ln -s /path/to/Net-Async-LastFM/lib/Net/Async ~/perl5/lib/perl5/Net/Async
+    - ln -s /path/to/Mojo-LastFM/lib/Mojo ~/perl5/lib/perl5/Mojo
