@@ -1,27 +1,28 @@
 package Mojo::WebService::LastFM;
 
-use strict;
-use warnings;
-use v5.10;
-
+use Mojo::Base -base;
 use Mojo::UserAgent;
 
-sub new
-{
-    my ($class, %params) = @_;
-    my $self = {};
+has 'api_key';
+has 'ua' => sub { Mojo::UserAgent->new; };
 
-    $self->{'api_key'} = $params{'api_key'};
 
-    my $ua = Mojo::UserAgent->new;
-    $ua->transactor->name("Net-Async-LastFM");    # Set the UserAgent for what Discord expects
-    $ua->connect_timeout(5);
-     
-    $self->{'ua'} = $ua; # Store this ua
-
-    bless $self, $class;
-    return $self;
-}
+#sub new
+#{
+#    my ($class, %params) = @_;
+#    my $self = {};
+#
+#    $self->{'api_key'} = $params{'api_key'};
+#
+#    my $ua = Mojo::UserAgent->new;
+#    $ua->transactor->name("Mojo-WebService-LastFM");    # Set the UserAgent for what Discord expects
+#    $ua->connect_timeout(5);
+#     
+#    $self->{'ua'} = $ua; # Store this ua
+#
+#    bless $self, $class;
+#    return $self;
+#}
 
 # This is now a recursive subroutine for retries.
 # $retries is an optional parameter which defines the maximum number of times the function should try to get data from the API.
@@ -43,7 +44,7 @@ sub nowplaying
     my $base_url = 'http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks';
     my $api_key = $self->{'api_key'};
     my $api_url = $base_url . "&user=$user&api_key=$api_key&format=json&limit=1";
-    my $ua = $self->{'ua'};
+    my $ua = $self->ua;
 
     $retries = 3 unless defined $retries;
     my $np;
@@ -75,6 +76,8 @@ sub nowplaying
                     'artist' => $artist,
                     'album'  => $album,
                     'title'  => $title,
+                    'date'   => $track->{'date'},
+                    'image'  => $track->{'image'},
                 };
             }
         }
