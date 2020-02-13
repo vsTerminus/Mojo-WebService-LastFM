@@ -1,28 +1,32 @@
 package Mojo::WebService::LastFM;
+use feature 'say';
 
-use Mojo::Base -base;
+use Moo;
+use strictures 2;
 use Mojo::UserAgent;
+use Mojo::Promise;
+use namespace::clean;
 
-has 'api_key';
-has 'ua' => sub { Mojo::UserAgent->new; };
+has 'api_key'   => ( is => 'ro' );
+has 'ua'        => ( is => 'lazy', builder => sub 
+{ 
+    my $self = shift;
+    my $ua = Mojo::UserAgent->new; 
+    $ua->transactor->name("Mojo-WebService-LastFM");
+    $ua->connect_timeout(5);
+    return $ua;
+});
 
+# Promise wrapper for nowplaying
+sub nowplaying_p
+{
+    my ($self, $params) = @_;
+    my $promise = Mojo::Promise->new;
 
-#sub new
-#{
-#    my ($class, %params) = @_;
-#    my $self = {};
-#
-#    $self->{'api_key'} = $params{'api_key'};
-#
-#    my $ua = Mojo::UserAgent->new;
-#    $ua->transactor->name("Mojo-WebService-LastFM");    # Set the UserAgent for what Discord expects
-#    $ua->connect_timeout(5);
-#     
-#    $self->{'ua'} = $ua; # Store this ua
-#
-#    bless $self, $class;
-#    return $self;
-#}
+    $self->nowplaying($params, sub { $promise->resolve(shift) });
+
+    return $promise;
+}
 
 # This is now a recursive subroutine for retries.
 # $retries is an optional parameter which defines the maximum number of times the function should try to get data from the API.
@@ -34,11 +38,10 @@ has 'ua' => sub { Mojo::UserAgent->new; };
 # If not, the sub will return a hashref with artist, album, and title.
 sub nowplaying
 {
-    my ($self, $params) = @_; #$user, $format, $callback, $retries) = @_;
+    my ($self, $params, $callback) = @_;
 
     my $user = $params->{'user'};
     my $format = $params->{'format'};
-    my $callback = $params->{'callback'};
     my $retries = $params->{'retries'};
 
     my $base_url = 'http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks';
