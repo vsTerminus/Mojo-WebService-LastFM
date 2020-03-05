@@ -70,10 +70,23 @@ sub nowplaying_p
 sub nowplaying
 {
     my ($self, $params, $callback) = @_;
-    croak 'username is undefined' unless exists $params->{'username'};
+    my $username;
+    if ( ref $params eq 'HASH' )
+    {
+        croak 'username is undefined' unless exists $params->{'username'};
+        $username = $params->{'username'};
+    }
+    elsif ( ref \$params eq 'SCALAR' ) 
+    {
+        $username = $params;
+    }
+    else
+    {
+        croak 'Invalid params format. Accept Hashref or Scalar.';
+    }
+
     croak 'callback is undefined' unless defined $callback;
 
-    my $username = $params->{'username'};
     my $np;
 
     $self->recent_tracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
@@ -116,8 +129,8 @@ sub info_p
 sub info
 {
     my ($self, $user, $callback) = @_;
-    croak '$user is undefined' unless defined $user;
-    carp '$callback is undefined' unless defined $callback;
+    croak 'user is undefined' unless defined $user;
+    croak 'callback is undefined' unless defined $callback;
 
     my $url = $self->base_url . 
     '/?method=user.getinfo' . 

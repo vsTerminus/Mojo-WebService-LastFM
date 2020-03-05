@@ -65,11 +65,22 @@ sub main
         'error' => 'invalid user',
     };
 
+    # Happy path - Hashref
     $lastfm->nowplaying_p({ 'username' => 'testuser' })->then(sub
     { 
         my $got = shift;
-        is_deeply($got, $expected, 'Valid User - Happy Path');
+        is_deeply($got, $expected, 'Valid User - Hashref');
     })->wait;
+
+    # Happy path - Scalar
+    $lastfm->nowplaying_p('testuser')->then(sub
+    { 
+        my $got = shift;
+        is_deeply($got, $expected, 'Valid User - Scalar');
+    })->wait;
+
+    dies_ok( sub { $lastfm->nowplaying_p(()) }, 'Hash dies' );
+    dies_ok( sub { $lastfm->nowplaying_p([]) }, 'Arrayref dies' );
 
     # While the username is valid, the response lacks the necessary fields and it will send an exception
     $lastfm->nowplaying_p({ 'username' => 'failuser' })->then(sub
