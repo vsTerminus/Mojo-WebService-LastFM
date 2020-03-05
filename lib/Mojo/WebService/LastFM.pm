@@ -5,6 +5,7 @@ use Moo;
 use strictures 2;
 use Mojo::UserAgent;
 use Mojo::Promise;
+use Mojo::Exception;
 use Carp;
 use namespace::clean;
 
@@ -31,8 +32,8 @@ sub recent_tracks_p
 sub recent_tracks
 {
     my ($self, $params, $callback) = @_;
-    croak '$username is undefined' unless exists $params->{'username'};
-    carp '$callback is undefined' unless defined $callback;
+    croak '$username is undefined' unless defined $params->{'username'};
+    croak '$callback is undefined' unless defined $callback;
 
     my $limit = $params->{'limit'} // 1;
 
@@ -46,12 +47,12 @@ sub recent_tracks
     $self->ua->get($url => sub
     {
         my ($ua, $tx) = @_;
-        croak "Error: " . $tx->error unless defined $tx->result;
+        $callback->($tx->error) unless defined $tx->result;
 
         my $json = $tx->res->json;
-        croak 'Error: $json response is undefined' unless defined $json;
+        $callback->(Mojo::Exception->new('json response is undefined')) unless defined $json;
 
-        $callback->($json) if defined $callback;
+        $callback->($json);
     });
 }
 
@@ -61,8 +62,7 @@ sub nowplaying_p
     my ($self, $params) = @_;
     my $promise = Mojo::Promise->new;
 
-    $self->nowplaying($params, sub { $promise->resolve(shift) });
-
+    $self->nowplaying($params, sub{ $promise->resolve(shift) });
     return $promise;
 }
 
@@ -71,27 +71,24 @@ sub nowplaying
 {
     my ($self, $params, $callback) = @_;
     croak 'username is undefined' unless exists $params->{'username'};
+    croak 'callback is undefined' unless defined $callback;
 
     my $username = $params->{'username'};
-
     my $np;
 
     $self->recent_tracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
     {
         my $json = shift;
-        croak '$json is undefined' unless defined $json;
+        $callback->(Mojo::Exception->new('$json is undefined')) unless defined $json;
 
-        my $track = $json->{'recenttracks'}{'track'}[0];
-        my $artist = $track->{'artist'}{'#text'};
-        my $title = $track->{'name'};
-        my $album = $track->{'album'}{'#text'};
-        
-        if ( defined $artist and defined $title )
+        if ( exists $json->{'recenttracks'}{'track'}[0] )
         {
+            my $track = $json->{'recenttracks'}{'track'}[0];
+            
             my $np = {
-                'artist' => $artist,
-                'album'  => $album,
-                'title'  => $title,
+                'artist' => $track->{'artist'}{'#text'},
+                'album'  => $track->{'album'}{'#text'},
+                'title'  => $track->{'name'},
                 'date'   => $track->{'date'},
                 'image'  => $track->{'image'},
             };
@@ -100,7 +97,7 @@ sub nowplaying
         }
         else
         {
-            $callback->({});
+            $callback->(Mojo::Exception->new('Error: Response missing now-playing information.'));
         }
     });
 }

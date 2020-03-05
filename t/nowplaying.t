@@ -1,7 +1,7 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Mock::Quick;
+use Test::Exception;
 use Mojolicious::Lite;
 use Mojo::Promise;
 use Data::Dumper;
@@ -29,7 +29,12 @@ get '/app/' => sub {
         },
     };
 
-    $c->render(json => $json);
+    my $invalid = {
+        'error' => 'invalid user',
+    };
+
+    my $username = $c->param('user');
+    $username eq 'testuser' ? $c->render(json => $json) : $c->render(json => $invalid);
 };
 
 app->log->level('fatal');
@@ -48,8 +53,6 @@ $lastfm->ua->server->app(app);
 
 sub main
 {
-    my $json;
-
     my $expected = {
         'artist' => 'Artist',
         'album' => 'Album',
@@ -57,8 +60,28 @@ sub main
         'date'  => 'today',
         'image' => 'image.jpg',
     };
-    $lastfm->nowplaying_p({ 'username' => 'testuser' })->then(sub{ $json = shift })->wait();
-    ok( Compare($json->{'album'}, $expected->{'album'}), 'Happy Path' );
+
+    my $invalid = {
+        'error' => 'invalid user',
+    };
+
+    $lastfm->nowplaying_p({ 'username' => 'testuser' })->then(sub
+    { 
+        my $got = shift;
+        is_deeply($got, $expected, 'Valid User - Happy Path');
+    })->wait;
+
+    # While the username is valid, the response lacks the necessary fields and it will send an exception
+    $lastfm->nowplaying_p({ 'username' => 'failuser' })->then(sub
+    { 
+        isa_ok(shift, 'Mojo::Exception');
+    })->wait;
+
+    # Undefined username should croak without calling anything
+    dies_ok( sub { $lastfm->nowplaying_p({ 'username' => undef }) }, 'Undefined Username Croaks' );
+
+    # No callback
+    dies_ok( sub { $lastfm->nowplaying({ 'username' => 'testuser' }) }, 'Undefined Callback Croaks' );
 }
 
 main();
