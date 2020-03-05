@@ -5,6 +5,7 @@ use Moo;
 use strictures 2;
 use Mojo::UserAgent;
 use Mojo::Promise;
+use Carp;
 use namespace::clean;
 
 has 'api_key'   => ( is => 'ro' );
@@ -16,6 +17,43 @@ has 'ua'        => ( is => 'lazy', builder => sub
     $ua->connect_timeout(5);
     return $ua;
 });
+has 'base_url'  => ( is => 'lazy', default => 'http://ws.audioscrobbler.com/2.0' );
+
+sub recent_tracks_p
+{
+    my ($self, $params) = @_;
+
+    my $promise = Mojo::Promise->new;
+    $self->recent_tracks($params, sub { $promise->resolve(shift) });
+    return $promise;
+}
+
+sub recent_tracks
+{
+    my ($self, $params, $callback) = @_;
+    croak '$username is undefined' unless exists $params->{'username'};
+    carp '$callback is undefined' unless defined $callback;
+
+    my $limit = $params->{'limit'} // 1;
+
+    my $url = $self->base_url . 
+    '/?method=user.getrecenttracks' .
+    '&user=' . $params->{'username'} . 
+    '&api_key=' . $self->api_key . 
+    '&format=json' . 
+    '&limit=' . $limit;
+
+    $self->ua->get($url => sub
+    {
+        my ($ua, $tx) = @_;
+        croak "Error: " . $tx->error unless defined $tx->result;
+
+        my $json = $tx->res->json;
+        croak 'Error: $json response is undefined' unless defined $json;
+
+        $callback->($json) if defined $callback;
+    });
+}
 
 # Promise wrapper for nowplaying
 sub nowplaying_p
@@ -28,97 +66,71 @@ sub nowplaying_p
     return $promise;
 }
 
-# This is now a recursive subroutine for retries.
-# $retries is an optional parameter which defines the maximum number of times the function should try to get data from the API.
-# If undefined it will default to 3.
-# The subroutine will call itself, decrementing the current retries value until it reaches zero and then send "Nothing playing for $user" to the callback.
-# If it succeeds, it will send the nowplaying info back to the callback function.
-
-# If the format parameter is passed in the sub will return a string in the specified format
-# If not, the sub will return a hashref with artist, album, and title.
+# Simplified sub that returns a simple subset of recent_tracks only containing the currently playing or last played track
 sub nowplaying
 {
-    my ($self, $params, $callback) = @_;
+    my ($self, $username, $callback) = @_;
 
-    my $user = $params->{'user'};
-    my $format = $params->{'format'};
-    my $retries = $params->{'retries'};
-
-    my $base_url = 'http://ws.audioscrobbler.com/2.0/?method=user.getrecenttracks';
-    my $api_key = $self->{'api_key'};
-    my $api_url = $base_url . "&user=$user&api_key=$api_key&format=json&limit=1";
-    my $ua = $self->ua;
-
-    $retries = 3 unless defined $retries;
     my $np;
 
-    $ua->get($api_url => sub {
-        my ($ua, $tx) = @_;
-        my $json = $tx->res->json; 
+    $self->recent_tracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
+    {
+        my $json = shift;
+        croak '$json is undefined' unless defined $json;
 
         my $track = $json->{'recenttracks'}{'track'}[0];
         my $artist = $track->{'artist'}{'#text'};
         my $title = $track->{'name'};
         my $album = $track->{'album'}{'#text'};
         
-        if ( defined $artist and defined $album and defined $title )
+        if ( defined $artist and defined $title )
         {
-            # If the caller wants the results returns in a string format, do that now.
-            if ( defined $format )
-            {
-                $format =~ s/%artist%/$artist/g;
-                $format =~ s/%album%/$album/g;
-                $format =~ s/%title%/$title/g;
-    
-                $np = $format;
-            }
-            # If we were not given a format, just return a hashref with artist, album, and title.
-            else
-            {
-                $np = {
-                    'artist' => $artist,
-                    'album'  => $album,
-                    'title'  => $title,
-                    'date'   => $track->{'date'},
-                    'image'  => $track->{'image'},
-                };
-            }
-        }
+            my $np = {
+                'artist' => $artist,
+                'album'  => $album,
+                'title'  => $title,
+                'date'   => $track->{'date'},
+                'image'  => $track->{'image'},
+            };
 
-        if ( defined $np )
-        {
             $callback->($np);
-        }
-        elsif ( --$retries > 0 )
-        {
-            # Try again.
-            $self->nowplaying($user, { format => $format, callback => $callback, retries => $retries});
         }
         else
         {
-            $callback->("Nothing playing for $user");
+            $callback->({});
         }
     });
 }
 
+sub info_p
+{
+    my ($self, $user) = @_;
+    my $promise = Mojo::Promise->new;
+
+    $self->info($user, sub { $promise->resolve(shift) });
+    
+    return $promise;
+}
+
 # Get user info
-sub getinfo
+sub info
 {
     my ($self, $user, $callback) = @_;
+    croak '$user is undefined' unless defined $user;
+    carp '$callback is undefined' unless defined $callback;
 
-    my $base_url = "https://ws.audioscrobbler.com/2.0/?method=user.getinfo";
-
-    my $api_key = $self->{'api_key'};
-    my $api_url = $base_url . "&user=$user&api_key=$api_key&format=json";
+    my $url = $self->base_url . 
+    '/?method=user.getinfo' . 
+    '&user=' . $user .
+    '&api_key=' . $self->api_key .
+    '&format=json';
     
-    $self->{'ua'}->get($api_url => sub
+    $self->ua->get($url => sub
     {
         my ($ua, $tx) = @_;
-
         my  $json = $tx->res->json;
         $callback->($json);
     });
-
 }
 
 1;
