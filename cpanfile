@@ -8,4 +8,7 @@ requires 'namespace::clean';
 on 'test' => sub {
     requires 'Test::More';
     requires 'Test::Memory::Cycle';
+    requires 'Data::Dumper';
+    requires 'Data::Compare';
+    requires 'Mojolicious::Lite';
 };
