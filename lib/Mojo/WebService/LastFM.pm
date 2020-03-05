@@ -69,7 +69,10 @@ sub nowplaying_p
 # Simplified sub that returns a simple subset of recent_tracks only containing the currently playing or last played track
 sub nowplaying
 {
-    my ($self, $username, $callback) = @_;
+    my ($self, $params, $callback) = @_;
+    croak 'username is undefined' unless exists $params->{'username'};
+
+    my $username = $params->{'username'};
 
     my $np;
 
