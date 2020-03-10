@@ -4,8 +4,6 @@ use Test::More;
 use Test::Exception;
 use Mojolicious::Lite;
 use Mojo::Promise;
-use Data::Dumper;
-use Data::Compare;
 
 get '/app/' => sub {
     my $c = shift;

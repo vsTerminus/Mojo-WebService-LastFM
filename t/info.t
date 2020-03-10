@@ -1,10 +1,8 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Test::Exception;
 use Mojolicious::Lite;
 use Mojo::Promise;
-use Data::Dumper;
 
 get '/app/' => sub {
     my $c = shift;
@@ -19,7 +17,6 @@ app->start();
 ##########################
 
 require_ok( 'Mojo::WebService::LastFM' );
-
 
 my $lastfm = Mojo::WebService::LastFM->new(
     'api_key' => 'abc123',
