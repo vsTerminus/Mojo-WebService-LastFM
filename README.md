@@ -1,7 +1,26 @@
-This is a stripped down Last.FM module that only supports querying the currently playing track for a user. It uses Mojo::UserAgent to send asynchronous, nonblocking calls.
+# Mojo::WebService::LastFM
 
-Installing it should be as simple as symlinking the "Async" directory (Containing LastFM.pm) into your perl lib folder.
+A Non-Blocking interface to the Last.FM API. Currently only supports the "recenttracks" endpoint, allowing you to query what a user is currently and was recently listening to.
 
-eg:
+It uses Mojo::UserAgent to make the calls and supports both callbacks and promises (with Mojo::Promise).
 
-    - ln -s /path/to/Mojo-LastFM/lib/Mojo ~/perl5/lib/perl5/Mojo
+I am currently working on getting it ready for CPAN, where you'll be able to install it like any other Perl module. For now you'll need to check out this repo, install the dependencies, and then manually merge it with your perl5 lib directory.
+
+## INSTALL
+
+### Linux / MacOS
+
+```bash
+# Clone the repo
+git clone https://github.com/vsTerminus/Mojo-WebService-LastFM.git
+cd Mojo-WebService-LastFM
+
+# Install dependencies
+cpanm --installdeps .
+
+# Manually install to ~/perl5/lib/perl5/
+mkdir -p ~/perl5/lib/perl5/Mojo/WebService
+ln -s $PWD/lib/Mojo/WebService/Last.fm ~/perl5/lib/perl5/Mojo/WebService/LastFM.pm
+```
+
+If your perl5 lib dir is somewhere else, adjust the last two commands accordingly.
