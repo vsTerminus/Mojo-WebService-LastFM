@@ -151,7 +151,7 @@ sub info_p
 
 =head1 NAME
 
-Mojo::WebService::LastFM
+Mojo::WebService::LastFM - Non-blocking recent tracks information from Last.FM
 
 =head1 SYNOPSIS
 
@@ -291,6 +291,22 @@ Sends the resulting JSON payload as a hashref to the callback.
 Promise version of info. Takes a username as a string, returns a L<Mojo::Promise>
 
     $lastfm->info_p($user)->then(sub{ say Dumper(shift) });
+
+=head1 BUGS
+
+Report any issues on L<Github|https://github.com/vsTerminus/Mojo-WebService-LastFM>
+
+=head1 AUTHOR
+
+Travis Smith <tesmith@cpan.org>
+
+=head1 COPYRIGHT AND LICENSE
+
+This software is Copyright (c) 2020 by Travis Smith.
+
+This is free software, licensed under:
+
+  The MIT (X11) License
 
 =head1 SEE ALSO
 
