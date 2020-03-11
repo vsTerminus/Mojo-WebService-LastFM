@@ -10,7 +10,144 @@ use namespace::clean;
 
 our $VERSION = "0.01";
 
-=pod
+
+has 'api_key'   => ( is => 'ro' );
+has 'ua'        => ( is => 'lazy', builder => sub 
+{ 
+    my $self = shift;
+    my $ua = Mojo::UserAgent->new; 
+    $ua->transactor->name("Mojo-WebService-LastFM");
+    $ua->connect_timeout(5);
+    return $ua;
+});
+has 'base_url'  => ( is => 'lazy', default => 'http://ws.audioscrobbler.com/2.0' );
+
+sub recenttracks
+{
+    my ($self, $params, $callback) = @_;
+    croak '$username is undefined' unless defined $params->{'username'};
+    croak '$callback is undefined' unless defined $callback;
+
+    my $limit = $params->{'limit'} // 1;
+
+    my $url = $self->base_url . 
+    '/?method=user.getrecenttracks' .
+    '&user=' . $params->{'username'} . 
+    '&api_key=' . $self->api_key . 
+    '&format=json' . 
+    '&limit=' . $limit;
+
+    $self->ua->get($url => sub
+    {
+        my ($ua, $tx) = @_;
+        $callback->($tx->error) unless defined $tx->result;
+
+        my $json = $tx->res->json;
+        $callback->(Mojo::Exception->new('json response is undefined')) unless defined $json;
+
+        $callback->($json);
+    });
+}
+
+sub recenttracks_p
+{
+    my ($self, $params) = @_;
+
+    my $promise = Mojo::Promise->new;
+    $self->recenttracks($params, sub { $promise->resolve(shift) });
+    return $promise;
+}
+
+sub nowplaying
+{
+    my ($self, $params, $callback) = @_;
+    my $username;
+    if ( ref $params eq 'HASH' )
+    {
+        croak 'username is undefined' unless exists $params->{'username'};
+        $username = $params->{'username'};
+    }
+    elsif ( ref \$params eq 'SCALAR' ) 
+    {
+        $username = $params;
+    }
+    else
+    {
+        croak 'Invalid params format. Accept Hashref or Scalar.';
+    }
+
+    croak 'callback is undefined' unless defined $callback;
+
+    my $np;
+
+    $self->recenttracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
+    {
+        my $json = shift;
+        $callback->(Mojo::Exception->new('$json is undefined')) unless defined $json;
+
+        if ( exists $json->{'recenttracks'}{'track'}[0] )
+        {
+            my $track = $json->{'recenttracks'}{'track'}[0];
+            
+            my $np = {
+                'artist' => $track->{'artist'}{'#text'},
+                'album'  => $track->{'album'}{'#text'},
+                'title'  => $track->{'name'},
+                'date'   => $track->{'date'},
+                'image'  => $track->{'image'},
+            };
+
+            $callback->($np);
+        }
+        else
+        {
+            $callback->(Mojo::Exception->new('Error: Response missing now-playing information.'));
+        }
+    });
+}
+
+sub nowplaying_p
+{
+    my ($self, $params) = @_;
+    my $promise = Mojo::Promise->new;
+
+    $self->nowplaying($params, sub{ $promise->resolve(shift) });
+    return $promise;
+}
+
+sub info
+{
+    my ($self, $user, $callback) = @_;
+    croak 'user is undefined' unless defined $user;
+    croak 'callback is undefined' unless defined $callback;
+
+    my $url = $self->base_url . 
+    '/?method=user.getinfo' . 
+    '&user=' . $user .
+    '&api_key=' . $self->api_key .
+    '&format=json';
+    
+    $self->ua->get($url => sub
+    {
+        my ($ua, $tx) = @_;
+        my  $json = $tx->res->json;
+        $callback->($json);
+    });
+}
+
+sub info_p
+{
+    my ($self, $user) = @_;
+    my $promise = Mojo::Promise->new;
+
+    $self->info($user, sub { $promise->resolve(shift) });
+    
+    return $promise;
+}
+
+1;
+
+=encoding utf8
 
 =head1 NAME
 
@@ -84,34 +221,15 @@ You will receive an API Key and an API Secret. Each will be a string of base-16 
 
 You don't need the API Secret for anything in this module (currently), but make sure when you get it you record it somewhere (eg your password vault) because LastFM won't show it to you again and you may need it in the future.
 
-=cut
-
-has 'api_key'   => ( is => 'ro' );
-
 =head2 ua
 
 A Mojo::UserAgent object is used to make all of the HTTP calls asynchronously.
-
-=cut
-
-has 'ua'        => ( is => 'lazy', builder => sub 
-{ 
-    my $self = shift;
-    my $ua = Mojo::UserAgent->new; 
-    $ua->transactor->name("Mojo-WebService-LastFM");
-    $ua->connect_timeout(5);
-    return $ua;
-});
 
 =head2 base_url
 
 This is the base URL for the Last.FM API site. It defaults to 'http://ws.audioscrobbler.com/2.0'.
 
 API call URLs are made by appending endpoints to this base string.
-
-=cut
-
-has 'base_url'  => ( is => 'lazy', default => 'http://ws.audioscrobbler.com/2.0' );
 
 =head1 METHODS
 
@@ -129,51 +247,11 @@ The callback should be a sub. recenttracks will call this sub and pass it the js
 
     $lastfm->recenttracks({'username' => $some_user, 'limit' => 1}, sub { my $json = shift; ... });
 
-=cut
-
-sub recenttracks
-{
-    my ($self, $params, $callback) = @_;
-    croak '$username is undefined' unless defined $params->{'username'};
-    croak '$callback is undefined' unless defined $callback;
-
-    my $limit = $params->{'limit'} // 1;
-
-    my $url = $self->base_url . 
-    '/?method=user.getrecenttracks' .
-    '&user=' . $params->{'username'} . 
-    '&api_key=' . $self->api_key . 
-    '&format=json' . 
-    '&limit=' . $limit;
-
-    $self->ua->get($url => sub
-    {
-        my ($ua, $tx) = @_;
-        $callback->($tx->error) unless defined $tx->result;
-
-        my $json = $tx->res->json;
-        $callback->(Mojo::Exception->new('json response is undefined')) unless defined $json;
-
-        $callback->($json);
-    });
-}
-
 =head2 recenttracks_p
 
 Version of recenttracks which accepts a params hashref and returns a L<Mojo::Promise>
 
     $lastfm->recenttracks_p({'username' => $another_user})->then(sub{ say Dumper(shift) })->catch(sub{ say Dumper(shift) });
-
-=cut
-
-sub recenttracks_p
-{
-    my ($self, $params) = @_;
-
-    my $promise = Mojo::Promise->new;
-    $self->recenttracks($params, sub { $promise->resolve(shift) });
-    return $promise;
-}
 
 =head2 nowplaying
 
@@ -191,57 +269,6 @@ Checking for the existence of the date key is the simplest way to determine if t
     # As hashref
     $lastfm->nowplaying({'username' => 'SomeUser1234'}, sub { exists shift->{'date'} ? say "Last Played" : say "Currently Playing" });
 
-=cut
-
-# Simplified sub that returns a simple subset of recenttracks only containing the currently playing or last played track
-sub nowplaying
-{
-    my ($self, $params, $callback) = @_;
-    my $username;
-    if ( ref $params eq 'HASH' )
-    {
-        croak 'username is undefined' unless exists $params->{'username'};
-        $username = $params->{'username'};
-    }
-    elsif ( ref \$params eq 'SCALAR' ) 
-    {
-        $username = $params;
-    }
-    else
-    {
-        croak 'Invalid params format. Accept Hashref or Scalar.';
-    }
-
-    croak 'callback is undefined' unless defined $callback;
-
-    my $np;
-
-    $self->recenttracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
-    {
-        my $json = shift;
-        $callback->(Mojo::Exception->new('$json is undefined')) unless defined $json;
-
-        if ( exists $json->{'recenttracks'}{'track'}[0] )
-        {
-            my $track = $json->{'recenttracks'}{'track'}[0];
-            
-            my $np = {
-                'artist' => $track->{'artist'}{'#text'},
-                'album'  => $track->{'album'}{'#text'},
-                'title'  => $track->{'name'},
-                'date'   => $track->{'date'},
-                'image'  => $track->{'image'},
-            };
-
-            $callback->($np);
-        }
-        else
-        {
-            $callback->(Mojo::Exception->new('Error: Response missing now-playing information.'));
-        }
-    });
-}
-
 =head2 nowplaying_p
 
 Promise version of nowplaying.
@@ -249,18 +276,6 @@ Promise version of nowplaying.
 Takes a username as a scalar or as a hashref, returns a L<Mojo::Promise>
 
     $lastfm->nowplaying_p('SomeUser5678')->then(sub{ say Dumper(shift) });
-
-=cut
-
-# Promise wrapper for nowplaying
-sub nowplaying_p
-{
-    my ($self, $params) = @_;
-    my $promise = Mojo::Promise->new;
-
-    $self->nowplaying($params, sub{ $promise->resolve(shift) });
-    return $promise;
-}
 
 =head2 info
 
@@ -271,51 +286,14 @@ Sends the resulting JSON payload as a hashref to the callback.
 
     $lastfm->info($username, sub { say Dumper(shift) });
 
-=cut
-
-# Get user info
-sub info
-{
-    my ($self, $user, $callback) = @_;
-    croak 'user is undefined' unless defined $user;
-    croak 'callback is undefined' unless defined $callback;
-
-    my $url = $self->base_url . 
-    '/?method=user.getinfo' . 
-    '&user=' . $user .
-    '&api_key=' . $self->api_key .
-    '&format=json';
-    
-    $self->ua->get($url => sub
-    {
-        my ($ua, $tx) = @_;
-        my  $json = $tx->res->json;
-        $callback->($json);
-    });
-}
-
 =head2 info_p
 
 Promise version of info. Takes a username as a string, returns a L<Mojo::Promise>
 
     $lastfm->info_p($user)->then(sub{ say Dumper(shift) });
 
-=cut
-
-sub info_p
-{
-    my ($self, $user) = @_;
-    my $promise = Mojo::Promise->new;
-
-    $self->info($user, sub { $promise->resolve(shift) });
-    
-    return $promise;
-}
-
 =head1 SEE ALSO
 
 L<Mojolicious>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
 
 =cut
-
-1;
