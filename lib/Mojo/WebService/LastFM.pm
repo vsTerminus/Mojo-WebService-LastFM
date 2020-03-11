@@ -1,5 +1,4 @@
 package Mojo::WebService::LastFM;
-use feature 'say';
 
 use Moo;
 use strictures 2;
@@ -9,7 +8,92 @@ use Mojo::Exception;
 use Carp;
 use namespace::clean;
 
+our $VERSION = "0.01";
+
+=pod
+
+=head1 NAME
+
+Mojo::WebService::LastFM
+
+=head1 SYNOPSIS
+
+    use Mojo::WebService::LastFM;
+    use Data::Dumper;
+
+    my $user = 'vsTerminus';
+    my $last = Mojo::WebService::LastFM->new('api_key' => 'abc123');
+
+    # Get currently playing or last played track using a callback, passing username as a scalar,
+    # and dump the resulting hash to screen using Data::Dumper
+    $last->nowplaying($user, sub { say Dumper(shift) });
+    
+    # Get currently playing or last played track using a promise, passing username in a hashref
+    $last->nowplaying_p({
+        'username' => $user
+    })->then(sub
+    {
+        my $np = shift;
+        if ( exists $np->{'date'} )
+        {
+            say $user . ' last listened to ' . $np->{'title'} . ' by ' . $np->{'artist'} . ' from ' . $np->{'album'} . ' at ' . $np->{'date'};
+        }
+        else
+        {
+            say $user . ' is currently listening to ' . $np->{'title'} . ' by ' . $np->{'artist'} . ' from ' . $np->{'album'};
+        }
+    })->catch(sub
+    {
+        my $err = shift;
+        die $err->message;
+    });
+    
+    # Get a complete recent tracks payload using a callback
+    # Print a formatted string of values
+    $last->recenttracks({ 'username' => $user }, sub
+    {
+        my $json = shift;
+        my $track = $json->{'recenttracks'}{'track'}[0];
+        my $artist = $track->{'artist'}{'#text'};
+        my $album = $track->{'album'}{'#text'};
+        my $title = $track->{'name'};
+        my $date = $track->{'date'};
+        my $img = $track->{'image'};
+
+        my $when = ( defined $date ? 'Last played' : 'Now playing' );
+        say "$when $artist - $album - $title";
+    });
+    
+    # Get a complete recent tracks payload using a promise
+    # Dump the hash to screen with Data::Dumper
+    $last->recenttracks_p({ 'username' => $user })->then(sub{ say Dumper(shift) });
+
+=head1 DESCRIPTION
+
+L<Mojo::WebService::LastFM> is an asynchronous way to request currently playing or recently played song information from Last.FM. It works with callbacks or with promises, whichever you prefer.
+
+It also provides the option to either fetch the entire JSON return object as a hashref, or to fetch a simplified hash which contains only the currently playing or last played song info. The latter is easier to work with if you just want to display the currently playing song.
+
+=head1 ATTRIBUTES
+
+=head2 api_key
+
+You will need an API Key for Last.FM, which you can get from L<the Last.FM API page|https://www.last.fm/api/account/create>.
+
+You will receive an API Key and an API Secret. Each will be a string of base-16 numbers (0-9a-f).
+
+You don't need the API Secret for anything in this module (currently), but make sure when you get it you record it somewhere (eg your password vault) because LastFM won't show it to you again and you may need it in the future.
+
+=cut
+
 has 'api_key'   => ( is => 'ro' );
+
+=head2 ua
+
+A Mojo::UserAgent object is used to make all of the HTTP calls asynchronously.
+
+=cut
+
 has 'ua'        => ( is => 'lazy', builder => sub 
 { 
     my $self = shift;
@@ -18,18 +102,36 @@ has 'ua'        => ( is => 'lazy', builder => sub
     $ua->connect_timeout(5);
     return $ua;
 });
+
+=head2 base_url
+
+This is the base URL for the Last.FM API site. It defaults to 'http://ws.audioscrobbler.com/2.0'.
+
+API call URLs are made by appending endpoints to this base string.
+
+=cut
+
 has 'base_url'  => ( is => 'lazy', default => 'http://ws.audioscrobbler.com/2.0' );
 
-sub recent_tracks_p
-{
-    my ($self, $params) = @_;
+=head1 METHODS
 
-    my $promise = Mojo::Promise->new;
-    $self->recent_tracks($params, sub { $promise->resolve(shift) });
-    return $promise;
-}
+L<Mojo::WebService::LastFM> implements the following methods
 
-sub recent_tracks
+=head2 recenttracks
+
+Request the complete 'recenttracks' JSON structure from Last.FM
+
+Takes a hashref and a callback, returns nothing.
+
+The hashref must contain at least a 'username' value, but may also specify a 'limit' value for the number of recent tracks to retrieve.
+
+The callback should be a sub. recenttracks will call this sub and pass it the json object it got from the API.
+
+    $lastfm->recenttracks({'username' => $some_user, 'limit' => 1}, sub { my $json = shift; ... });
+
+=cut
+
+sub recenttracks
 {
     my ($self, $params, $callback) = @_;
     croak '$username is undefined' unless defined $params->{'username'};
@@ -56,17 +158,42 @@ sub recent_tracks
     });
 }
 
-# Promise wrapper for nowplaying
-sub nowplaying_p
+=head2 recenttracks_p
+
+Version of recenttracks which accepts a params hashref and returns a L<Mojo::Promise>
+
+    $lastfm->recenttracks_p({'username' => $another_user})->then(sub{ say Dumper(shift) })->catch(sub{ say Dumper(shift) });
+
+=cut
+
+sub recenttracks_p
 {
     my ($self, $params) = @_;
-    my $promise = Mojo::Promise->new;
 
-    $self->nowplaying($params, sub{ $promise->resolve(shift) });
+    my $promise = Mojo::Promise->new;
+    $self->recenttracks($params, sub { $promise->resolve(shift) });
     return $promise;
 }
 
-# Simplified sub that returns a simple subset of recent_tracks only containing the currently playing or last played track
+=head2 nowplaying
+
+Return only the currently playing track or the last played track in a simplified object structure.
+
+Takes a username either as a scalar or as a hashref with the 'username' key and a callback sub.
+Sends the resulting JSON payload as a hashref to the callback.
+
+The response includes the Artist, Album, Title, and Album Art URL. If it is not the currently playing track it will also include the date/time of when the last track was played.
+Checking for the existence of the date key is the simplest way to determine if the song is currently playing or not.
+
+    # As scalar
+    $lastfm->nowplaying('SomeUser1234', sub { my $json = shift; say "Now Playing: " . $json->{'artist'} . " - " . $json->{'title'} ; });
+
+    # As hashref
+    $lastfm->nowplaying({'username' => 'SomeUser1234'}, sub { exists shift->{'date'} ? say "Last Played" : say "Currently Playing" });
+
+=cut
+
+# Simplified sub that returns a simple subset of recenttracks only containing the currently playing or last played track
 sub nowplaying
 {
     my ($self, $params, $callback) = @_;
@@ -89,7 +216,7 @@ sub nowplaying
 
     my $np;
 
-    $self->recent_tracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
+    $self->recenttracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
     {
         my $json = shift;
         $callback->(Mojo::Exception->new('$json is undefined')) unless defined $json;
@@ -115,15 +242,36 @@ sub nowplaying
     });
 }
 
-sub info_p
+=head2 nowplaying_p
+
+Promise version of nowplaying.
+
+Takes a username as a scalar or as a hashref, returns a L<Mojo::Promise>
+
+    $lastfm->nowplaying_p('SomeUser5678')->then(sub{ say Dumper(shift) });
+
+=cut
+
+# Promise wrapper for nowplaying
+sub nowplaying_p
 {
-    my ($self, $user) = @_;
+    my ($self, $params) = @_;
     my $promise = Mojo::Promise->new;
 
-    $self->info($user, sub { $promise->resolve(shift) });
-    
+    $self->nowplaying($params, sub{ $promise->resolve(shift) });
     return $promise;
 }
+
+=head2 info
+
+Returns user profile info for the specified user.
+
+Accepts a username as a string and a callback sub.
+Sends the resulting JSON payload as a hashref to the callback.
+
+    $lastfm->info($username, sub { say Dumper(shift) });
+
+=cut
 
 # Get user info
 sub info
@@ -145,5 +293,29 @@ sub info
         $callback->($json);
     });
 }
+
+=head2 info_p
+
+Promise version of info. Takes a username as a string, returns a L<Mojo::Promise>
+
+    $lastfm->info_p($user)->then(sub{ say Dumper(shift) });
+
+=cut
+
+sub info_p
+{
+    my ($self, $user) = @_;
+    my $promise = Mojo::Promise->new;
+
+    $self->info($user, sub { $promise->resolve(shift) });
+    
+    return $promise;
+}
+
+=head1 SEE ALSO
+
+L<Mojolicious>, L<Mojolicious::Guides>, L<https://mojolicious.org>.
+
+=cut
 
 1;
