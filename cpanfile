@@ -1,9 +1,11 @@
 # To use: cpanm --installdeps .
+requires 'perl' => '5.010001';
+requires 'Mojolicious' => '8.0';
 requires 'Mojo::UserAgent';
 requires 'Mojo::Promise';
-requires 'Moo';
+requires 'Moo' => '2.000000';
 requires 'Carp';
-requires 'strictures', '>=2, <3';
+requires 'strictures' => '2';
 requires 'namespace::clean';
 
 on 'test' => sub {
