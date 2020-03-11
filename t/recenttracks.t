@@ -2,7 +2,6 @@ use Mojo::Base -strict;
 
 use Test::More;
 use Test::Exception;
-use Mock::Quick;
 use Mojolicious::Lite;
 use Mojo::Promise;
 use Data::Dumper;
@@ -32,13 +31,13 @@ sub main
     my $json;
 
     # It doesn't really matter what the username is, we'll get a response back.
-    $lastfm->recent_tracks_p({ 'username' => 'testuser' })->then(sub{ is(shift, '{success: true}', "Happy Path") })->wait();
+    $lastfm->recenttracks_p({ 'username' => 'testuser' })->then(sub{ is(shift, '{success: true}', "Happy Path") })->wait();
 
     # Undefined username should croak
-    dies_ok( sub { $lastfm->nowplaying_p({ 'username' => undef }) }, 'Undefined Username Croaks' );
+    dies_ok( sub { $lastfm->recenttracks_p({ 'username' => undef }) }, 'Undefined Username Croaks' );
 
     # No callback should also croak
-    dies_ok( sub { $lastfm->nowplaying({ 'username' => 'testuser' }) }, 'Undefined Callback Croaks' );
+    dies_ok( sub { $lastfm->recenttracks({ 'username' => 'testuser' }) }, 'Undefined Callback Croaks' );
 
 
 }
