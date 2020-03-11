@@ -1,7 +1,7 @@
 use Mojo::Base -strict;
 
 use Test::More;
-use Test::Exception;
+use Test::Fatal qw(dies_ok);
 use Mojolicious::Lite;
 use Mojo::Promise;
 

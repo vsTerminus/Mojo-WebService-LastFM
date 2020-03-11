@@ -10,7 +10,7 @@ requires 'namespace::clean';
 
 on 'test' => sub {
     requires 'Test::More';
-    requires 'Test::Exception';
+    requires 'Test::Fatal';
     requires 'Test::Memory::Cycle';
     requires 'Data::Dumper';
     requires 'Mojolicious::Lite';
