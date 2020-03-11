@@ -70,6 +70,17 @@
       }
    },
    "release_status" : "stable",
+   "resources" : {
+      "bugtracker" : {
+         "web" : "https://github.com/vsTerminus/Mojo-WebService-LastFM/issues"
+      },
+      "homepage" : "https://github.com/vsTerminus/Mojo-WebService-LastFM",
+      "repository" : {
+         "type" : "git",
+         "url" : "https://github.com/vsTerminus/Mojo-WebService-LastFM.git",
+         "web" : "https://github.com/vsTerminus/Mojo-WebService-LastFM"
+      }
+   },
    "version" : "0.01",
    "x_Dist_Zilla" : {
       "perl" : {
