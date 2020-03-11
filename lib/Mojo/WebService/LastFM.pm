@@ -162,7 +162,7 @@ Mojo::WebService::LastFM - Non-blocking recent tracks information from Last.FM
     my $last = Mojo::WebService::LastFM->new('api_key' => 'abc123');
 
     # Get currently playing or last played track using a callback, passing username as a scalar,
-    # and dump the resulting hash to screen using Data::Dumper
+    # and dump the resulting hashref to screen using Data::Dumper
     $last->nowplaying($user, sub { say Dumper(shift) });
     
     # Get currently playing or last played track using a promise, passing username in a hashref
@@ -202,14 +202,14 @@ Mojo::WebService::LastFM - Non-blocking recent tracks information from Last.FM
     });
     
     # Get a complete recent tracks payload using a promise
-    # Dump the hash to screen with Data::Dumper
+    # Dump the hashref to screen with Data::Dumper
     $last->recenttracks_p({ 'username' => $user })->then(sub{ say Dumper(shift) });
 
 =head1 DESCRIPTION
 
 L<Mojo::WebService::LastFM> is an asynchronous way to request currently playing or recently played song information from Last.FM. It works with callbacks or with promises, whichever you prefer.
 
-It also provides the option to either fetch the entire JSON return object as a hashref, or to fetch a simplified hash which contains only the currently playing or last played song info. The latter is easier to work with if you just want to display the currently playing song.
+It also provides the option to either fetch the entire JSON return object as a hashref, or to fetch a simplified hashref which contains only the currently playing or last played song info. The latter is easier to work with if you just want to display the currently playing song.
 
 =head1 ATTRIBUTES
 
@@ -294,7 +294,7 @@ Promise version of info. Takes a username as a string, returns a L<Mojo::Promise
 
 =head1 BUGS
 
-Report any issues on L<Github|https://github.com/vsTerminus/Mojo-WebService-LastFM>
+Report any issues on the public bug tracker.
 
 =head1 AUTHOR
 
