@@ -84,7 +84,7 @@ EOW
         "Travis Smith <tesmith\@cpan.org>"
       ],
       "dist_name" => "Mojo-WebService-LastFM",
-      "dist_version" => "0.01",
+      "dist_version" => "0.02",
       "license" => "mit",
       "module_name" => "Mojo::WebService::LastFM",
       "recursive_test_files" => 1,
