@@ -26,7 +26,6 @@ sub recenttracks
 {
     my ($self, $params, $callback) = @_;
     croak '$username is undefined' unless defined $params->{'username'};
-    croak '$callback is undefined' unless defined $callback;
 
     my $limit = $params->{'limit'} // 1;
 
@@ -36,6 +35,12 @@ sub recenttracks
     '&api_key=' . $self->api_key . 
     '&format=json' . 
     '&limit=' . $limit;
+
+    unless ( ref $_[-1] eq 'CODE' )
+    {
+        my $tx = $self->ua->get($url);
+        return ( $tx->res ? $tx->res->json : $tx->error );
+    }
 
     $self->ua->get($url => sub
     {
@@ -76,9 +81,21 @@ sub nowplaying
         croak 'Invalid params format. Accept Hashref or Scalar.';
     }
 
-    croak 'callback is undefined' unless defined $callback;
-
     my $np;
+
+    unless ( ref $_[-1] eq 'CODE' )
+    {
+        my $json = $self->recenttracks({ 'username' => $username, 'limit' => 1 });
+        if ( exists $json->{'recenttracks'}{'track'}[0] )
+        {
+            $np = _simplify_json($json);
+            return $np;
+        }
+        else
+        {
+            return Mojo::Exception->new('Error: Response missing now-playing information.');
+        }
+    }
 
     $self->recenttracks_p({ 'username' => $username, 'limit' => 1 })->then(sub
     {
@@ -87,16 +104,7 @@ sub nowplaying
 
         if ( exists $json->{'recenttracks'}{'track'}[0] )
         {
-            my $track = $json->{'recenttracks'}{'track'}[0];
-            
-            my $np = {
-                'artist' => $track->{'artist'}{'#text'},
-                'album'  => $track->{'album'}{'#text'},
-                'title'  => $track->{'name'},
-                'date'   => $track->{'date'},
-                'image'  => $track->{'image'},
-            };
-
+            $np = _simplify_json($json);
             $callback->($np);
         }
         else
@@ -104,6 +112,23 @@ sub nowplaying
             $callback->(Mojo::Exception->new('Error: Response missing now-playing information.'));
         }
     });
+}
+
+# Convert the recenttracks JSON object to the simplified nowplaying object.
+sub _simplify_json
+{
+    my $json = shift;
+    my $track = $json->{'recenttracks'}{'track'}[0];
+    
+    my $np = {
+        'artist' => $track->{'artist'}{'#text'},
+        'album'  => $track->{'album'}{'#text'},
+        'title'  => $track->{'name'},
+        'date'   => $track->{'date'},
+        'image'  => $track->{'image'},
+    };
+    
+    return $np;
 }
 
 sub nowplaying_p
@@ -119,7 +144,6 @@ sub info
 {
     my ($self, $user, $callback) = @_;
     croak 'user is undefined' unless defined $user;
-    croak 'callback is undefined' unless defined $callback;
 
     my $url = $self->base_url . 
     '/?method=user.getinfo' . 
@@ -127,6 +151,12 @@ sub info
     '&api_key=' . $self->api_key .
     '&format=json';
     
+    unless ( ref $_[-1] eq 'CODE' )
+    {
+        my $tx = $self->ua->get($url);
+        return ($tx->result ? $tx->res->json : $tx->error);
+    }
+
     $self->ua->get($url => sub
     {
         my ($ua, $tx) = @_;

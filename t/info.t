@@ -35,8 +35,8 @@ sub main
     # Undefined username should croak
     dies_ok( sub { $lastfm->info_p(undef) }, 'Undefined Username Croaks' );
 
-    # No callback should also croak
-    dies_ok( sub { $lastfm->info('testuser') }, 'Undefined Callback Croaks' );
+    # No callback should be a blocking call
+    is_deeply( $lastfm->info('testuser'), $expected, 'Undefined Callback - Blocking Call' );
 }
 
 main();

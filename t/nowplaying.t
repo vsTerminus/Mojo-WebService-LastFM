@@ -89,8 +89,8 @@ sub main
     # Undefined username should croak without calling anything
     dies_ok( sub { $lastfm->nowplaying_p({ 'username' => undef }) }, 'Undefined Username Croaks' );
 
-    # No callback
-    dies_ok( sub { $lastfm->nowplaying({ 'username' => 'testuser' }) }, 'Undefined Callback Croaks' );
+    # No callback - Blocking call
+    is_deeply( $lastfm->nowplaying('testuser'), $expected, 'Undefined Callback - Blocking Call' );
 }
 
 main();

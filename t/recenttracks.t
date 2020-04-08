@@ -30,16 +30,16 @@ sub main
 {
     my $json;
 
+    my $expected = '{success: true}';
+
     # It doesn't really matter what the username is, we'll get a response back.
-    $lastfm->recenttracks_p({ 'username' => 'testuser' })->then(sub{ is(shift, '{success: true}', "Happy Path") })->wait();
+    $lastfm->recenttracks_p({ 'username' => 'testuser' })->then(sub{ is(shift, $expected, "Happy Path") })->wait();
 
     # Undefined username should croak
     dies_ok( sub { $lastfm->recenttracks_p({ 'username' => undef }) }, 'Undefined Username Croaks' );
 
-    # No callback should also croak
-    dies_ok( sub { $lastfm->recenttracks({ 'username' => 'testuser' }) }, 'Undefined Callback Croaks' );
-
-
+    # No callback should perform a blocking call
+    is( $lastfm->recenttracks({ 'username' => 'testuser' }), $expected, 'Undefined Callback - Blocking Call' );
 }
 
 main();
