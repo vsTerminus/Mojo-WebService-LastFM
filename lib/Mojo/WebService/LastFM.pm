@@ -237,7 +237,7 @@ Mojo::WebService::LastFM - Non-blocking recent tracks information from Last.FM
 
 =head1 DESCRIPTION
 
-L<Mojo::WebService::LastFM> is an asynchronous way to request currently playing or recently played song information from Last.FM. It works with callbacks or with promises, whichever you prefer.
+L<Mojo::WebService::LastFM> is a way to request currently playing or recently played song information from Last.FM. Support exists for blocking calls or non-blocking with callbacks or promises - your choice.
 
 It also provides the option to either fetch the entire JSON return object as a hashref, or to fetch a simplified hashref which contains only the currently playing or last played song info. The latter is easier to work with if you just want to display the currently playing song.
 
@@ -269,13 +269,17 @@ L<Mojo::WebService::LastFM> implements the following methods
 
 Request the complete 'recenttracks' JSON structure from Last.FM
 
-Takes a hashref and a callback, returns nothing.
+Non-Blocking: Takes a hashref and a callback, returns nothing.
+Blocking: Takes a hashref, returns a hashref
 
-The hashref must contain at least a 'username' value, but may also specify a 'limit' value for the number of recent tracks to retrieve.
+The parameters must contain at least a 'username' value, but may also specify a 'limit' value for the number of recent tracks to retrieve.
 
-The callback should be a sub. recenttracks will call this sub and pass it the json object it got from the API.
+The callback, if defined, should be a sub. recenttracks will call this sub and pass it the json object it got from the API.
 
-    $lastfm->recenttracks({'username' => $some_user, 'limit' => 1}, sub { my $json = shift; ... });
+
+    $lastfm->recenttracks({'username' => $some_user, 'limit' => 1}, sub { my $json = shift; ... }); # Non-Blocking
+
+    my $json = $lastfm->recenttracks({'username' => $some_user, 'limit' => 2}); # Blocking
 
 =head2 recenttracks_p
 
@@ -290,6 +294,8 @@ Return only the currently playing track or the last played track in a simplified
 Takes a username either as a scalar or as a hashref with the 'username' key and a callback sub.
 Sends the resulting JSON payload as a hashref to the callback.
 
+Alternatively takes just a username, makes a blocking call, and returns the JSON payload as a hashref.
+
 The response includes the Artist, Album, Title, and Album Art URL. If it is not the currently playing track it will also include the date/time of when the last track was played.
 Checking for the existence of the date key is the simplest way to determine if the song is currently playing or not.
 
@@ -298,6 +304,9 @@ Checking for the existence of the date key is the simplest way to determine if t
 
     # As hashref
     $lastfm->nowplaying({'username' => 'SomeUser1234'}, sub { exists shift->{'date'} ? say "Last Played" : say "Currently Playing" });
+
+    # Blocking
+    my $json = $lastfm->nowplaying('SomeUser5678');
 
 =head2 nowplaying_p
 
@@ -314,7 +323,11 @@ Returns user profile info for the specified user.
 Accepts a username as a string and a callback sub.
 Sends the resulting JSON payload as a hashref to the callback.
 
-    $lastfm->info($username, sub { say Dumper(shift) });
+Alternatively accepts just a username and returns the JSON payload after making a blocking call.
+
+    $lastfm->info($username, sub { say Dumper(shift) }); # Non-Blocking
+
+    my $json = $lastfm->info($username); # Blocking
 
 =head2 info_p
 
