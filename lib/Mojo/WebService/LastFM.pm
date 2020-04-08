@@ -8,7 +8,7 @@ use Mojo::Exception;
 use Carp;
 use namespace::clean;
 
-our $VERSION = '0.02';
+our $VERSION = '0.03';
 
 
 has 'api_key'   => ( is => 'ro' );
